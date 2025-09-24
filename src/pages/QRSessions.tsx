@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,9 +7,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { QrCode, RefreshCw, Settings, MapPin, Clock, Shield } from 'lucide-react';
+import { QrCode, RefreshCw, Settings, MapPin, Clock, Shield, Download } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
+import QRCodeLib from 'qrcode';
 import type { Tables } from '@/integrations/supabase/types';
 
 type QRConfig = Tables<'qr_attendance_config'>;
@@ -18,8 +19,10 @@ export default function QRSessions() {
   const { user } = useAuth();
   const [config, setConfig] = useState<QRConfig | null>(null);
   const [currentQR, setCurrentQR] = useState<string>('');
+  const [qrCodeImage, setQrCodeImage] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [configLoading, setConfigLoading] = useState(true);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Form state for configuration
   const [formData, setFormData] = useState({
@@ -74,6 +77,23 @@ export default function QRSessions() {
     }
   };
 
+  const generateQRCodeImage = async (qrText: string) => {
+    try {
+      const qrCodeDataURL = await QRCodeLib.toDataURL(qrText, {
+        width: 256,
+        margin: 2,
+        color: {
+          dark: '#000000',
+          light: '#FFFFFF'
+        },
+        errorCorrectionLevel: 'M'
+      });
+      setQrCodeImage(qrCodeDataURL);
+    } catch (error) {
+      console.error('Error generating QR code image:', error);
+    }
+  };
+
   const generateDailyQR = async () => {
     setLoading(true);
     try {
@@ -82,6 +102,8 @@ export default function QRSessions() {
       if (error) throw error;
       
       setCurrentQR(data);
+      await generateQRCodeImage(data);
+      
       toast({ 
         title: 'Success', 
         description: 'Daily QR code generated successfully!',
@@ -96,6 +118,15 @@ export default function QRSessions() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const downloadQRCode = () => {
+    if (qrCodeImage) {
+      const link = document.createElement('a');
+      link.download = `attendance-qr-${format(new Date(), 'yyyy-MM-dd')}.png`;
+      link.href = qrCodeImage;
+      link.click();
     }
   };
 
@@ -164,17 +195,39 @@ export default function QRSessions() {
             <div className="text-center p-6 bg-muted/10 rounded-lg border border-white/10">
               {currentQR ? (
                 <div className="space-y-4">
-                  <div className="p-4 bg-white rounded-lg inline-block">
-                    <div className="text-2xl font-mono text-black break-all">
+                  <div className="flex flex-col items-center space-y-4">
+                    {qrCodeImage && (
+                      <div className="p-4 bg-white rounded-lg shadow-lg">
+                        <img 
+                          src={qrCodeImage} 
+                          alt="QR Code for Attendance" 
+                          className="w-64 h-64 object-contain"
+                        />
+                      </div>
+                    )}
+                    <div className="text-xs text-muted-foreground font-mono bg-black/5 p-2 rounded border max-w-full overflow-hidden">
                       {currentQR}
                     </div>
                   </div>
                   <div className="text-sm text-muted-foreground">
                     Generated: {format(new Date(), 'PPp')}
                   </div>
-                  <Badge className="bg-success/20 text-success border-success/30 border">
-                    Active for today
-                  </Badge>
+                  <div className="flex items-center justify-center gap-2">
+                    <Badge className="bg-success/20 text-success border-success/30 border">
+                      Active for today
+                    </Badge>
+                  </div>
+                  {qrCodeImage && (
+                    <Button
+                      onClick={downloadQRCode}
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download QR Code
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">
