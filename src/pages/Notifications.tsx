@@ -5,15 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Bell, BellRing, Info, AlertTriangle, CheckCircle, X, MoreVertical } from 'lucide-react';
+import { Bell, BellRing, Info, AlertTriangle, CheckCircle, X, MoreVertical, Trash2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { format, formatDistanceToNow } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 import type { Tables } from '@/integrations/supabase/types';
 
 type Notification = Tables<'notifications'>;
 
 export default function Notifications() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
@@ -97,8 +99,44 @@ export default function Notifications() {
       setNotifications(prev => 
         prev.map(n => ({ ...n, is_read: true }))
       );
+
+      toast({ 
+        title: 'Success',
+        description: 'All notifications marked as read'
+      });
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
+      toast({ 
+        title: 'Error',
+        description: 'Failed to mark notifications as read',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  const deleteNotification = async (notificationId: string) => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+
+      if (error) throw error;
+
+      // Update local state
+      setNotifications(notifications.filter(n => n.id !== notificationId));
+
+      toast({ 
+        title: 'Success',
+        description: 'Notification deleted'
+      });
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+      toast({ 
+        title: 'Error',
+        description: 'Failed to delete notification',
+        variant: 'destructive'
+      });
     }
   };
 
@@ -261,10 +299,17 @@ export default function Notifications() {
                                   Mark as read
                                 </DropdownMenuItem>
                               )}
-                              <DropdownMenuItem className="hover:bg-muted/20">
-                                <Info className="h-4 w-4 mr-2" />
-                                View details
-                              </DropdownMenuItem>
+                               <DropdownMenuItem className="hover:bg-muted/20">
+                                 <Info className="h-4 w-4 mr-2" />
+                                 View details
+                               </DropdownMenuItem>
+                               <DropdownMenuItem 
+                                 onClick={() => deleteNotification(notification.id)}
+                                 className="text-destructive hover:bg-destructive/20 focus:text-destructive"
+                               >
+                                 <Trash2 className="h-4 w-4 mr-2" />
+                                 Delete
+                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>

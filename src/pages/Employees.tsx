@@ -142,6 +142,65 @@ export default function Employees() {
     }
   }
 
+  const deleteEmployee = async (employeeId: string, employeeName: string) => {
+    if (!confirm(`Are you sure you want to permanently delete ${employeeName}? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      // Delete from user_profiles
+      const { error } = await supabase
+        .from('user_profiles')
+        .delete()
+        .eq('id', employeeId)
+
+      if (error) throw error
+
+      // Update local state
+      setEmployees(employees.filter(emp => emp.id !== employeeId))
+
+      toast({
+        title: "Success",
+        description: `Employee ${employeeName} deleted successfully`,
+      })
+    } catch (error) {
+      console.error('Error deleting employee:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete employee",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const editEmployeeField = async (employee: Employee, field: string, newValue: string) => {
+    try {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ [field]: newValue })
+        .eq('id', employee.id)
+
+      if (error) throw error
+
+      // Update local state
+      setEmployees(employees.map(emp => 
+        emp.id === employee.id ? { ...emp, [field]: newValue } : emp
+      ))
+
+      toast({
+        title: "Success",
+        description: "Employee updated successfully",
+      })
+    } catch (error) {
+      console.error('Error editing employee:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update employee",
+        variant: "destructive"
+      })
+    }
+  }
+
   const filteredEmployees = employees.filter(employee =>
     employee.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     employee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -354,26 +413,51 @@ export default function Employees() {
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => toggleEmployeeStatus(employee.id, employee.is_active)}
-                        >
-                          {employee.is_active ? (
-                            <>
-                              <UserX className="mr-2 h-4 w-4" />
-                              Deactivate
-                            </>
-                          ) : (
-                            <>
-                              <UserCheck className="mr-2 h-4 w-4" />
-                              Activate
-                            </>
-                          )}
-                        </DropdownMenuItem>
+                       <DropdownMenuContent align="end">
+                         <DropdownMenuItem
+                           onClick={() => {
+                             const newName = prompt('Enter new full name:', employee.full_name);
+                             if (newName && newName !== employee.full_name) {
+                               editEmployeeField(employee, 'full_name', newName);
+                             }
+                           }}
+                         >
+                           <Edit className="mr-2 h-4 w-4" />
+                           Edit Name
+                         </DropdownMenuItem>
+                         <DropdownMenuItem
+                           onClick={() => {
+                             const newDept = prompt('Enter department:', employee.department || '');
+                             if (newDept !== null) {
+                               editEmployeeField(employee, 'department', newDept);
+                             }
+                           }}
+                         >
+                           <Edit className="mr-2 h-4 w-4" />
+                           Edit Department
+                         </DropdownMenuItem>
+                         <DropdownMenuItem
+                           onClick={() => toggleEmployeeStatus(employee.id, employee.is_active)}
+                         >
+                           {employee.is_active ? (
+                             <>
+                               <UserX className="mr-2 h-4 w-4" />
+                               Deactivate
+                             </>
+                           ) : (
+                             <>
+                               <UserCheck className="mr-2 h-4 w-4" />
+                               Activate
+                             </>
+                           )}
+                         </DropdownMenuItem>
+                         <DropdownMenuItem
+                           onClick={() => deleteEmployee(employee.id, employee.full_name)}
+                           className="text-destructive focus:text-destructive"
+                         >
+                           <Trash2 className="mr-2 h-4 w-4" />
+                           Delete
+                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

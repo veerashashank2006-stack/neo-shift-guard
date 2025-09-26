@@ -429,7 +429,35 @@ export default function Settings() {
                     <h4 className="font-medium text-destructive">Delete Account</h4>
                     <p className="text-sm text-muted-foreground">Permanently delete your account and all data</p>
                   </div>
-                  <Button variant="outline" className="border-destructive/30 text-destructive hover:bg-destructive/20">
+                  <Button 
+                    variant="outline" 
+                    className="border-destructive/30 text-destructive hover:bg-destructive/20"
+                    onClick={async () => {
+                      if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                        try {
+                          // Delete user profile first
+                          await supabase.from('user_profiles').delete().eq('id', user?.id);
+                          
+                          // Sign out user
+                          await signOut();
+                          
+                          toast({
+                            title: "Account Deleted",
+                            description: "Your account has been permanently deleted.",
+                          });
+                          
+                          navigate('/auth');
+                        } catch (error) {
+                          console.error('Error deleting account:', error);
+                          toast({
+                            title: "Error",
+                            description: "Failed to delete account. Please contact support.",
+                            variant: "destructive"
+                          });
+                        }
+                      }
+                    }}
+                  >
                     Delete Account
                   </Button>
                 </div>

@@ -120,8 +120,62 @@ export default function Attendance() {
           setQrCode('');
           checkTodayRecord();
           fetchAttendanceRecords();
-        }
-      }
+    }
+  }
+
+  const deleteAttendanceRecord = async (recordId: string) => {
+    if (!confirm('Are you sure you want to delete this attendance record?')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('attendance_records')
+        .delete()
+        .eq('id', recordId)
+
+      if (error) throw error
+
+      setRecords(records.filter(record => record.id !== recordId))
+      toast({
+        title: 'Success',
+        description: 'Attendance record deleted successfully'
+      })
+    } catch (error) {
+      console.error('Error deleting attendance record:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to delete attendance record',
+        variant: 'destructive'
+      })
+    }
+  }
+
+  const editAttendanceRecord = async (recordId: string, field: string, newValue: string) => {
+    try {
+      const { error } = await supabase
+        .from('attendance_records')
+        .update({ [field]: newValue })
+        .eq('id', recordId)
+
+      if (error) throw error
+
+      // Refresh records
+      fetchAttendanceRecords()
+      
+      toast({
+        title: 'Success',
+        description: 'Attendance record updated successfully'
+      })
+    } catch (error) {
+      console.error('Error updating attendance record:', error)
+      toast({
+        title: 'Error',
+        description: 'Failed to update attendance record',
+        variant: 'destructive'
+      })
+    }
+  }
     } catch (error) {
       toast({ title: 'Error', description: 'An unexpected error occurred', variant: 'destructive' });
     }
