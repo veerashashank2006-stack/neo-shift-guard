@@ -8,7 +8,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Users, Search, Plus, MoreHorizontal, Edit, Trash2, DollarSign, UserCheck, UserX } from "lucide-react"
+import { Users, Search, Plus, MoreHorizontal, Edit, Trash2, DollarSign, UserCheck, UserX, Clock, LogIn, LogOut } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client"
 import { useAuth } from "@/contexts/AuthContext"
 import { useToast } from "@/hooks/use-toast"
@@ -24,6 +24,11 @@ interface Employee {
   phone?: string
   is_active: boolean
   created_at: string
+  // Attendance fields
+  attendance_status?: 'checked_in' | 'checked_out' | 'not_marked'
+  check_in_time?: string
+  check_out_time?: string
+  last_attendance_date?: string
 }
 
 export default function Employees() {
@@ -50,13 +55,51 @@ export default function Employees() {
 
   const fetchEmployees = async () => {
     try {
+      const today = new Date().toISOString().split('T')[0]
+      
+      // Fetch employees with their today's attendance status
       const { data, error } = await supabase
         .from('user_profiles')
-        .select('*')
+        .select(`
+          *,
+          attendance_records!left(
+            check_in_time,
+            check_out_time,
+            date,
+            status
+          )
+        `)
         .order('full_name')
 
       if (error) throw error
-      setEmployees(data || [])
+
+      // Process the data to include attendance status
+      const employeesWithAttendance = (data || []).map((employee: any) => {
+        const todayAttendance = employee.attendance_records?.find(
+          (record: any) => record.date === today
+        )
+        
+        let attendance_status: 'checked_in' | 'checked_out' | 'not_marked' = 'not_marked'
+        
+        if (todayAttendance) {
+          if (todayAttendance.check_out_time) {
+            attendance_status = 'checked_out'
+          } else if (todayAttendance.check_in_time) {
+            attendance_status = 'checked_in'
+          }
+        }
+
+        return {
+          ...employee,
+          attendance_status,
+          check_in_time: todayAttendance?.check_in_time,
+          check_out_time: todayAttendance?.check_out_time,
+          last_attendance_date: todayAttendance?.date,
+          attendance_records: undefined // Remove the nested records
+        }
+      })
+
+      setEmployees(employeesWithAttendance)
       setLoading(false)
     } catch (error) {
       console.error('Error fetching employees:', error)
@@ -379,7 +422,8 @@ export default function Employees() {
               <TableHead>Email</TableHead>
               <TableHead>Role</TableHead>
               <TableHead>Department</TableHead>
-              <TableHead>Position</TableHead>
+              <TableHead>Attendance Status</TableHead>
+              <TableHead>Check In/Out</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -400,7 +444,57 @@ export default function Employees() {
                     </Badge>
                   </TableCell>
                   <TableCell>{employee.department || '-'}</TableCell>
-                  <TableCell>{employee.position || '-'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      {employee.attendance_status === 'checked_in' && (
+                        <>
+                          <LogIn className="h-4 w-4 text-success" />
+                          <Badge variant="default" className="bg-success/10 text-success border-success/20">
+                            Checked In
+                          </Badge>
+                        </>
+                      )}
+                      {employee.attendance_status === 'checked_out' && (
+                        <>
+                          <LogOut className="h-4 w-4 text-muted-foreground" />
+                          <Badge variant="secondary">
+                            Checked Out
+                          </Badge>
+                        </>
+                      )}
+                      {employee.attendance_status === 'not_marked' && (
+                        <>
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                          <Badge variant="outline">
+                            Not Marked
+                          </Badge>
+                        </>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm">
+                      {employee.check_in_time && (
+                        <div className="text-success">
+                          In: {new Date(employee.check_in_time).toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
+                      {employee.check_out_time && (
+                        <div className="text-muted-foreground">
+                          Out: {new Date(employee.check_out_time).toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </div>
+                      )}
+                      {!employee.check_in_time && !employee.check_out_time && (
+                        <div className="text-muted-foreground">-</div>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell>
                     <Badge variant={employee.is_active ? 'default' : 'secondary'}>
                       {employee.is_active ? 'Active' : 'Inactive'}
@@ -465,7 +559,7 @@ export default function Employees() {
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8">
+                <TableCell colSpan={9} className="text-center py-8">
                   <div className="text-muted-foreground">
                     {searchQuery ? 'No employees found matching your search.' : 'No employees found.'}
                   </div>
