@@ -478,7 +478,8 @@ export default function Employees() {
                         <div className="text-success">
                           In: {new Date(employee.check_in_time).toLocaleTimeString('en-US', { 
                             hour: '2-digit', 
-                            minute: '2-digit' 
+                            minute: '2-digit',
+                            timeZone: 'UTC'
                           })}
                         </div>
                       )}
@@ -486,7 +487,8 @@ export default function Employees() {
                         <div className="text-muted-foreground">
                           Out: {new Date(employee.check_out_time).toLocaleTimeString('en-US', { 
                             hour: '2-digit', 
-                            minute: '2-digit' 
+                            minute: '2-digit',
+                            timeZone: 'UTC'
                           })}
                         </div>
                       )}
