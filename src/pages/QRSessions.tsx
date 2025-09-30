@@ -178,7 +178,8 @@ export default function QRSessions() {
       const configData = {
         ...formData,
         work_start_time: formData.work_start_time || null,
-        work_end_time: formData.work_end_time || null
+        work_end_time: formData.work_end_time || null,
+        id: config?.id
       };
 
       const { error } = await supabase
