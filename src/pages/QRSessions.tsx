@@ -175,16 +175,31 @@ export default function QRSessions() {
   const updateConfig = async () => {
     setLoading(true);
     try {
+      if (!config?.id) {
+        toast({ 
+          title: 'Error', 
+          description: 'No configuration found to update',
+          variant: 'destructive'
+        });
+        return;
+      }
+
       const configData = {
-        ...formData,
+        organization_name: formData.organization_name,
+        qr_code_prefix: formData.qr_code_prefix,
         work_start_time: formData.work_start_time || null,
         work_end_time: formData.work_end_time || null,
-        id: config?.id
+        late_threshold_minutes: formData.late_threshold_minutes,
+        location_validation_enabled: formData.location_validation_enabled,
+        allowed_latitude: formData.allowed_latitude,
+        allowed_longitude: formData.allowed_longitude,
+        geofence_radius_meters: formData.geofence_radius_meters
       };
 
       const { error } = await supabase
         .from('qr_attendance_config')
-        .upsert(configData, { onConflict: 'id' });
+        .update(configData)
+        .eq('id', config.id);
 
       if (error) throw error;
 
