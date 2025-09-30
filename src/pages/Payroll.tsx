@@ -22,6 +22,7 @@ interface PayrollData {
   overtime_hours: number;
   total_hours: number;
   hourly_rate: number;
+  overtime_rate: number;
   regular_pay: number;
   overtime_pay: number;
   total_pay: number;
@@ -34,8 +35,6 @@ export default function Payroll() {
   const [payrollData, setPayrollData] = useState<PayrollData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [normalPayRate, setNormalPayRate] = useState<number>(18.50);
-  const [specialPayRate, setSpecialPayRate] = useState<number>(27.75);
 
   useEffect(() => {
     if (user) {
@@ -106,9 +105,9 @@ export default function Payroll() {
         }
       });
       
-      // Use configurable rates
-      const hourlyRate = normalPayRate;
-      const overtimeRate = specialPayRate;
+      // Default rates for each employee (can be customized per employee)
+      const hourlyRate = 18.50;
+      const overtimeRate = 27.75;
       
       const regularPay = totalRegularHours * hourlyRate;
       const overtimePay = totalOvertimeHours * overtimeRate;
@@ -122,6 +121,7 @@ export default function Payroll() {
         overtime_hours: totalOvertimeHours,
         total_hours: totalRegularHours + totalOvertimeHours,
         hourly_rate: hourlyRate,
+        overtime_rate: overtimeRate,
         regular_pay: regularPay,
         overtime_pay: overtimePay,
         total_pay: totalPay
@@ -129,6 +129,20 @@ export default function Payroll() {
     });
     
     setPayrollData(payroll);
+  };
+
+  const updateEmployeeRate = (userId: string, field: 'hourly_rate' | 'overtime_rate', value: number) => {
+    setPayrollData(prev => prev.map(emp => {
+      if (emp.user_id === userId) {
+        const updated = { ...emp, [field]: value };
+        // Recalculate pay
+        updated.regular_pay = updated.regular_hours * updated.hourly_rate;
+        updated.overtime_pay = updated.overtime_hours * updated.overtime_rate;
+        updated.total_pay = updated.regular_pay + updated.overtime_pay;
+        return updated;
+      }
+      return emp;
+    }));
   };
 
   const getTotalPayroll = () => {
@@ -185,67 +199,6 @@ export default function Payroll() {
           </Button>
         </div>
       </div>
-
-      {/* Pay Rate Configuration */}
-      <Card className="glass-card border-white/10">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <DollarSign className="h-5 w-5 text-primary" />
-            Pay Rate Configuration
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="normalPay" className="text-foreground">Normal Pay Rate (per hour)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                <Input
-                  id="normalPay"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={normalPayRate}
-                  onChange={(e) => {
-                    const value = parseFloat(e.target.value);
-                    if (!isNaN(value) && value >= 0) {
-                      setNormalPayRate(value);
-                    }
-                  }}
-                  onBlur={() => {
-                    calculatePayroll(attendanceRecords, profiles);
-                  }}
-                  className="pl-7"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="specialPay" className="text-foreground">Special Pay Rate (overtime per hour)</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                <Input
-                  id="specialPay"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={specialPayRate}
-                  onChange={(e) => {
-                    const value = parseFloat(e.target.value);
-                    if (!isNaN(value) && value >= 0) {
-                      setSpecialPayRate(value);
-                    }
-                  }}
-                  onBlur={() => {
-                    calculatePayroll(attendanceRecords, profiles);
-                  }}
-                  className="pl-7"
-                />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -325,23 +278,72 @@ export default function Payroll() {
                 {payrollData.map((employee) => (
                   <div 
                     key={employee.user_id} 
-                    className="flex items-center justify-between p-4 rounded-lg bg-muted/10 border border-white/10"
+                    className="p-4 rounded-lg bg-muted/10 border border-white/10 space-y-4"
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
-                        <span className="text-sm font-semibold text-primary">
-                          {employee.user_name.split(' ').map(n => n[0]).join('')}
-                        </span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-primary">
+                            {employee.user_name.split(' ').map(n => n[0]).join('')}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="font-semibold text-foreground">{employee.user_name}</div>
+                          <div className="text-sm text-muted-foreground">{employee.employee_id}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="font-semibold text-foreground">{employee.user_name}</div>
-                        <div className="text-sm text-muted-foreground">{employee.employee_id}</div>
+                      
+                      <div className="text-right">
+                        <div className="text-sm text-muted-foreground">Total Pay</div>
+                        <div className="text-xl font-bold text-success">
+                          ${employee.total_pay.toFixed(2)}
+                        </div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-6">
-                      <div className="text-center">
-                        <div className="text-sm text-muted-foreground">Hours</div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Normal Pay Rate</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={employee.hourly_rate}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value) && value >= 0) {
+                                updateEmployeeRate(employee.user_id, 'hourly_rate', value);
+                              }
+                            }}
+                            className="pl-7 h-9 text-sm"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Special Pay Rate</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={employee.overtime_rate}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value) && value >= 0) {
+                                updateEmployeeRate(employee.user_id, 'overtime_rate', value);
+                              }
+                            }}
+                            className="pl-7 h-9 text-sm"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="text-center p-3 rounded-lg bg-muted/20 border border-white/10">
+                        <div className="text-xs text-muted-foreground">Hours</div>
                         <div className="font-semibold text-foreground">
                           {employee.total_hours.toFixed(1)}
                         </div>
@@ -352,17 +354,11 @@ export default function Payroll() {
                         )}
                       </div>
                       
-                      <div className="text-center">
-                        <div className="text-sm text-muted-foreground">Rate</div>
-                        <div className="font-semibold text-foreground">
-                          ${employee.hourly_rate.toFixed(2)}/hr
-                        </div>
-                      </div>
-                      
-                      <div className="text-right">
-                        <div className="text-sm text-muted-foreground">Total Pay</div>
-                        <div className="text-xl font-bold text-success">
-                          ${employee.total_pay.toFixed(2)}
+                      <div className="text-center p-3 rounded-lg bg-primary/10 border border-primary/30">
+                        <div className="text-xs text-muted-foreground">Calculated Pay</div>
+                        <div className="font-bold text-primary">${employee.total_pay.toFixed(2)}</div>
+                        <div className="text-xs text-muted-foreground">
+                          ${employee.regular_pay.toFixed(2)} + ${employee.overtime_pay.toFixed(2)}
                         </div>
                       </div>
                     </div>
@@ -398,7 +394,47 @@ export default function Payroll() {
                       </Badge>
                     </div>
                     
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Normal Rate</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={employee.hourly_rate}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value) && value >= 0) {
+                                updateEmployeeRate(employee.user_id, 'hourly_rate', value);
+                              }
+                            }}
+                            className="pl-7 h-9 text-sm"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">Special Rate</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">$</span>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={employee.overtime_rate}
+                            onChange={(e) => {
+                              const value = parseFloat(e.target.value);
+                              if (!isNaN(value) && value >= 0) {
+                                updateEmployeeRate(employee.user_id, 'overtime_rate', value);
+                              }
+                            }}
+                            className="pl-7 h-9 text-sm"
+                          />
+                        </div>
+                      </div>
+                      
                       <div className="text-center p-3 rounded-lg bg-muted/20 border border-white/10">
                         <div className="text-sm text-muted-foreground">Regular Hours</div>
                         <div className="font-semibold text-foreground">{employee.regular_hours.toFixed(1)}</div>
@@ -409,12 +445,6 @@ export default function Payroll() {
                         <div className="text-sm text-muted-foreground">Overtime Hours</div>
                         <div className="font-semibold text-foreground">{employee.overtime_hours.toFixed(1)}</div>
                         <div className="text-xs text-warning">${employee.overtime_pay.toFixed(2)}</div>
-                      </div>
-                      
-                      <div className="text-center p-3 rounded-lg bg-muted/20 border border-white/10">
-                        <div className="text-sm text-muted-foreground">Hourly Rate</div>
-                        <div className="font-semibold text-foreground">${employee.hourly_rate.toFixed(2)}</div>
-                        <div className="text-xs text-muted-foreground">Base rate</div>
                       </div>
                       
                       <div className="text-center p-3 rounded-lg bg-primary/10 border border-primary/30">
