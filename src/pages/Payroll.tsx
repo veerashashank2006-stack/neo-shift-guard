@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { DollarSign, Clock, Calculator, Download, TrendingUp, Calendar } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, differenceInHours } from 'date-fns';
 import type { Tables } from '@/integrations/supabase/types';
@@ -32,6 +34,8 @@ export default function Payroll() {
   const [payrollData, setPayrollData] = useState<PayrollData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [normalPayRate, setNormalPayRate] = useState<number>(18.50);
+  const [specialPayRate, setSpecialPayRate] = useState<number>(27.75);
 
   useEffect(() => {
     if (user) {
@@ -102,9 +106,9 @@ export default function Payroll() {
         }
       });
       
-      // Default hourly rate (this would normally come from employee records)
-      const hourlyRate = 18.50; // You could add this to user_profiles table
-      const overtimeRate = hourlyRate * 1.5;
+      // Use configurable rates
+      const hourlyRate = normalPayRate;
+      const overtimeRate = specialPayRate;
       
       const regularPay = totalRegularHours * hourlyRate;
       const overtimePay = totalOvertimeHours * overtimeRate;
@@ -181,6 +185,67 @@ export default function Payroll() {
           </Button>
         </div>
       </div>
+
+      {/* Pay Rate Configuration */}
+      <Card className="glass-card border-white/10">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary" />
+            Pay Rate Configuration
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="normalPay" className="text-foreground">Normal Pay Rate (per hour)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <Input
+                  id="normalPay"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={normalPayRate}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    if (!isNaN(value) && value >= 0) {
+                      setNormalPayRate(value);
+                    }
+                  }}
+                  onBlur={() => {
+                    calculatePayroll(attendanceRecords, profiles);
+                  }}
+                  className="pl-7"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="specialPay" className="text-foreground">Special Pay Rate (overtime per hour)</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
+                <Input
+                  id="specialPay"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={specialPayRate}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    if (!isNaN(value) && value >= 0) {
+                      setSpecialPayRate(value);
+                    }
+                  }}
+                  onBlur={() => {
+                    calculatePayroll(attendanceRecords, profiles);
+                  }}
+                  className="pl-7"
+                />
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
