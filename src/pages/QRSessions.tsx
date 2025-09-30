@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { QrCode, RefreshCw, Settings, MapPin, Clock, Shield, Download } from 'lucide-react';
+import { QrCode, RefreshCw, Settings, MapPin, Clock, Shield, Download, Navigation } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 import QRCodeLib from 'qrcode';
@@ -128,6 +128,48 @@ export default function QRSessions() {
       link.href = qrCodeImage;
       link.click();
     }
+  };
+
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: 'Error',
+        description: 'Geolocation is not supported by your browser',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setFormData(prev => ({
+          ...prev,
+          allowed_latitude: position.coords.latitude,
+          allowed_longitude: position.coords.longitude
+        }));
+        toast({
+          title: 'Success',
+          description: 'Location updated successfully!',
+          variant: 'default'
+        });
+        setLoading(false);
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to get your current location. Please enable location permissions.',
+          variant: 'destructive'
+        });
+        setLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
   };
 
   const updateConfig = async () => {
@@ -417,29 +459,45 @@ export default function QRSessions() {
           </div>
 
           {formData.location_validation_enabled && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="latitude">Allowed Latitude</Label>
-                <Input
-                  id="latitude"
-                  type="number"
-                  step="0.000001"
-                  value={formData.allowed_latitude}
-                  onChange={(e) => setFormData(prev => ({ ...prev, allowed_latitude: Number(e.target.value) }))}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Location Coordinates</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={getCurrentLocation}
+                  disabled={loading}
                   className="glass-card border-white/10"
-                />
+                >
+                  <Navigation className="h-4 w-4 mr-2" />
+                  Get Current Location
+                </Button>
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="latitude">Allowed Latitude</Label>
+                  <Input
+                    id="latitude"
+                    type="number"
+                    step="0.000001"
+                    value={formData.allowed_latitude}
+                    onChange={(e) => setFormData(prev => ({ ...prev, allowed_latitude: Number(e.target.value) }))}
+                    className="glass-card border-white/10"
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="longitude">Allowed Longitude</Label>
-                <Input
-                  id="longitude"
-                  type="number"
-                  step="0.000001"
-                  value={formData.allowed_longitude}
-                  onChange={(e) => setFormData(prev => ({ ...prev, allowed_longitude: Number(e.target.value) }))}
-                  className="glass-card border-white/10"
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="longitude">Allowed Longitude</Label>
+                  <Input
+                    id="longitude"
+                    type="number"
+                    step="0.000001"
+                    value={formData.allowed_longitude}
+                    onChange={(e) => setFormData(prev => ({ ...prev, allowed_longitude: Number(e.target.value) }))}
+                    className="glass-card border-white/10"
+                  />
+                </div>
               </div>
             </div>
           )}
