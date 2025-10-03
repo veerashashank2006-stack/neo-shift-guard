@@ -7,9 +7,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DollarSign, Clock, Calculator, Download, TrendingUp, Calendar } from 'lucide-react';
+import { DollarSign, Clock, Calculator, Download, TrendingUp, Calendar, FileSpreadsheet, FileText } from 'lucide-react';
 import { format, startOfMonth, endOfMonth, differenceInHours } from 'date-fns';
 import type { Tables } from '@/integrations/supabase/types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
 
 type AttendanceRecord = Tables<'attendance_records'>;
 type UserProfile = Tables<'user_profiles'>;
@@ -157,6 +161,97 @@ export default function Payroll() {
     return payrollData.reduce((total, employee) => total + employee.overtime_hours, 0);
   };
 
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(18);
+      doc.text('Payroll Report', 14, 20);
+      doc.setFontSize(11);
+      doc.text(`Period: ${format(selectedMonth, 'MMMM yyyy')}`, 14, 28);
+      doc.text(`Generated: ${format(new Date(), 'PP')}`, 14, 34);
+      
+      // Summary section
+      doc.setFontSize(12);
+      doc.text('Summary', 14, 44);
+      doc.setFontSize(10);
+      doc.text(`Total Payroll: $${getTotalPayroll().toFixed(2)}`, 14, 50);
+      doc.text(`Total Hours: ${getTotalHours().toFixed(1)}`, 14, 56);
+      doc.text(`Overtime Hours: ${getTotalOvertimeHours().toFixed(1)}`, 14, 62);
+      doc.text(`Employees: ${payrollData.length}`, 14, 68);
+      
+      // Employee details table
+      const tableData = payrollData.map(emp => [
+        emp.employee_id,
+        emp.user_name,
+        emp.regular_hours.toFixed(1),
+        emp.overtime_hours.toFixed(1),
+        emp.total_hours.toFixed(1),
+        `$${emp.hourly_rate.toFixed(2)}`,
+        `$${emp.overtime_rate.toFixed(2)}`,
+        `$${emp.regular_pay.toFixed(2)}`,
+        `$${emp.overtime_pay.toFixed(2)}`,
+        `$${emp.total_pay.toFixed(2)}`
+      ]);
+      
+      autoTable(doc, {
+        startY: 75,
+        head: [['ID', 'Name', 'Reg Hrs', 'OT Hrs', 'Total Hrs', 'Rate', 'OT Rate', 'Reg Pay', 'OT Pay', 'Total Pay']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] },
+        styles: { fontSize: 8 }
+      });
+      
+      doc.save(`payroll-${format(selectedMonth, 'yyyy-MM')}.pdf`);
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error('Failed to export PDF');
+    }
+  };
+
+  const exportToExcel = () => {
+    try {
+      const worksheet = XLSX.utils.json_to_sheet(
+        payrollData.map(emp => ({
+          'Employee ID': emp.employee_id,
+          'Name': emp.user_name,
+          'Regular Hours': emp.regular_hours.toFixed(1),
+          'Overtime Hours': emp.overtime_hours.toFixed(1),
+          'Total Hours': emp.total_hours.toFixed(1),
+          'Hourly Rate': emp.hourly_rate.toFixed(2),
+          'Overtime Rate': emp.overtime_rate.toFixed(2),
+          'Regular Pay': emp.regular_pay.toFixed(2),
+          'Overtime Pay': emp.overtime_pay.toFixed(2),
+          'Total Pay': emp.total_pay.toFixed(2)
+        }))
+      );
+      
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Payroll');
+      
+      // Add summary sheet
+      const summaryData = [
+        ['Summary', ''],
+        ['Period', format(selectedMonth, 'MMMM yyyy')],
+        ['Total Payroll', `$${getTotalPayroll().toFixed(2)}`],
+        ['Total Hours', getTotalHours().toFixed(1)],
+        ['Overtime Hours', getTotalOvertimeHours().toFixed(1)],
+        ['Employees', payrollData.length]
+      ];
+      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+      
+      XLSX.writeFile(workbook, `payroll-${format(selectedMonth, 'yyyy-MM')}.xlsx`);
+      toast.success('Excel exported successfully');
+    } catch (error) {
+      console.error('Error exporting Excel:', error);
+      toast.error('Failed to export Excel');
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6 animate-fade-in">
@@ -193,9 +288,13 @@ export default function Payroll() {
           >
             Next Month
           </Button>
-          <Button className="glass-button neon-glow">
-            <Download className="h-4 w-4 mr-2" />
-            Export
+          <Button onClick={exportToPDF} variant="outline" className="glass-card border-white/10">
+            <FileText className="h-4 w-4 mr-2" />
+            Export PDF
+          </Button>
+          <Button onClick={exportToExcel} className="glass-button neon-glow">
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Export Excel
           </Button>
         </div>
       </div>

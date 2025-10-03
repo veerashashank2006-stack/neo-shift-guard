@@ -4,10 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarDays, Users, Clock, TrendingUp, Download, Filter } from 'lucide-react';
+import { CalendarDays, Users, Clock, TrendingUp, Download, Filter, FileSpreadsheet, FileText } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { format, subDays, startOfWeek, endOfWeek } from 'date-fns';
 import type { Tables } from '@/integrations/supabase/types';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
 
 type AttendanceRecord = Tables<'attendance_records'>;
 type UserProfile = Tables<'user_profiles'>;
@@ -121,6 +125,135 @@ export default function Reports() {
     };
   };
 
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF();
+      
+      // Add title
+      doc.setFontSize(18);
+      doc.text('Attendance Report', 14, 20);
+      doc.setFontSize(11);
+      doc.text(`Period: Last 30 Days`, 14, 28);
+      doc.text(`Generated: ${format(new Date(), 'PP')}`, 14, 34);
+      
+      // Summary section
+      const stats = getTotalStats();
+      doc.setFontSize(12);
+      doc.text('Summary', 14, 44);
+      doc.setFontSize(10);
+      doc.text(`Total Records: ${stats.total}`, 14, 50);
+      doc.text(`Present: ${stats.present}`, 14, 56);
+      doc.text(`Late: ${stats.late}`, 14, 62);
+      doc.text(`Absent: ${stats.absent}`, 14, 68);
+      doc.text(`Attendance Rate: ${stats.presentRate}%`, 14, 74);
+      
+      // Employee summary table
+      const tableData = profiles.map(profile => {
+        const userRecords = attendanceData.filter(r => r.user_id === profile.id);
+        const presentCount = userRecords.filter(r => r.status === 'present').length;
+        const lateCount = userRecords.filter(r => r.status === 'late').length;
+        const absentCount = userRecords.filter(r => r.status === 'absent').length;
+        const totalRecords = userRecords.length;
+        const attendanceRate = totalRecords ? ((presentCount / totalRecords) * 100).toFixed(1) : '0';
+        
+        return [
+          profile.employee_id,
+          profile.full_name,
+          totalRecords,
+          presentCount,
+          lateCount,
+          absentCount,
+          `${attendanceRate}%`
+        ];
+      });
+      
+      autoTable(doc, {
+        startY: 82,
+        head: [['ID', 'Name', 'Total', 'Present', 'Late', 'Absent', 'Rate']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [59, 130, 246] },
+        styles: { fontSize: 10 }
+      });
+      
+      doc.save(`attendance-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      toast.success('PDF exported successfully');
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      toast.error('Failed to export PDF');
+    }
+  };
+
+  const exportToExcel = () => {
+    try {
+      // Employee summary sheet
+      const employeeData = profiles.map(profile => {
+        const userRecords = attendanceData.filter(r => r.user_id === profile.id);
+        const presentCount = userRecords.filter(r => r.status === 'present').length;
+        const lateCount = userRecords.filter(r => r.status === 'late').length;
+        const absentCount = userRecords.filter(r => r.status === 'absent').length;
+        const totalRecords = userRecords.length;
+        const attendanceRate = totalRecords ? ((presentCount / totalRecords) * 100).toFixed(1) : '0';
+        
+        return {
+          'Employee ID': profile.employee_id,
+          'Name': profile.full_name,
+          'Role': profile.role,
+          'Total Records': totalRecords,
+          'Present': presentCount,
+          'Late': lateCount,
+          'Absent': absentCount,
+          'Attendance Rate': `${attendanceRate}%`
+        };
+      });
+      
+      const employeeSheet = XLSX.utils.json_to_sheet(employeeData);
+      
+      // Detailed records sheet
+      const detailedData = attendanceData.map(record => {
+        const profile = profiles.find(p => p.id === record.user_id);
+        return {
+          'Date': format(new Date(record.date), 'PP'),
+          'Employee ID': profile?.employee_id || 'N/A',
+          'Name': profile?.full_name || 'Unknown',
+          'Status': record.status,
+          'Check In': record.check_in_time ? format(new Date(record.check_in_time), 'p') : 'N/A',
+          'Check Out': record.check_out_time ? format(new Date(record.check_out_time), 'p') : 'N/A',
+          'Notes': record.notes || ''
+        };
+      });
+      
+      const detailedSheet = XLSX.utils.json_to_sheet(detailedData);
+      
+      // Summary sheet
+      const stats = getTotalStats();
+      const summaryData = [
+        ['Attendance Report Summary', ''],
+        ['Period', 'Last 30 Days'],
+        ['Generated', format(new Date(), 'PP')],
+        ['', ''],
+        ['Total Records', stats.total],
+        ['Present', stats.present],
+        ['Late', stats.late],
+        ['Absent', stats.absent],
+        ['Attendance Rate', `${stats.presentRate}%`]
+      ];
+      const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+      
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+      XLSX.utils.book_append_sheet(workbook, employeeSheet, 'Employee Summary');
+      XLSX.utils.book_append_sheet(workbook, detailedSheet, 'Detailed Records');
+      
+      XLSX.writeFile(workbook, `attendance-report-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+      toast.success('Excel exported successfully');
+    } catch (error) {
+      console.error('Error exporting Excel:', error);
+      toast.error('Failed to export Excel');
+    }
+  };
+
   const stats = getTotalStats();
 
   if (loading) {
@@ -142,13 +275,13 @@ export default function Reports() {
           <p className="text-muted-foreground">Analytics and insights for the last 30 days</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="glass-card border-white/10">
-            <Filter className="h-4 w-4 mr-2" />
-            Filter
+          <Button onClick={exportToPDF} variant="outline" className="glass-card border-white/10">
+            <FileText className="h-4 w-4 mr-2" />
+            Export PDF
           </Button>
-          <Button className="glass-button neon-glow">
-            <Download className="h-4 w-4 mr-2" />
-            Export
+          <Button onClick={exportToExcel} className="glass-button neon-glow">
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Export Excel
           </Button>
         </div>
       </div>
