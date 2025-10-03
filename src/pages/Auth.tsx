@@ -41,7 +41,7 @@ export default function Auth() {
     const { error } = await signIn(signInData.email, signInData.password);
     
     if (error) {
-      setError(error.message);
+      setError(error.message || 'An error occurred during sign in');
     }
     
     setLoading(false);
