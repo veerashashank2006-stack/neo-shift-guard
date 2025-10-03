@@ -39,11 +39,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    return { error };
+    
+    if (error) {
+      return { error };
+    }
+
+    // Check user role from database
+    if (data.user) {
+      const { data: profileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+
+      if (profileError) {
+        // If profile doesn't exist yet, allow login (they might be setting up)
+        return { error: null };
+      }
+
+      // If user is an employee, deny access to admin panel
+      if (profileData.role === 'employee') {
+        // Sign them out immediately
+        await supabase.auth.signOut();
+        return { 
+          error: { 
+            message: 'Sorry, only admins can login',
+            name: 'RoleError',
+            status: 403
+          } as any 
+        };
+      }
+    }
+
+    return { error: null };
   };
 
   const signUp = async (email: string, password: string, metadata?: any) => {
