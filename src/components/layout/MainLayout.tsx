@@ -1,6 +1,7 @@
 import { ReactNode } from "react"
-import { SidebarProvider } from "@/components/ui/sidebar"
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 import { AppSidebar } from "./AppSidebar"
+import { Menu } from "lucide-react"
 
 interface MainLayoutProps {
   children: ReactNode
@@ -15,9 +16,16 @@ export function MainLayout({ children }: MainLayoutProps) {
           {/* Top Bar */}
           <header className="glass-card border-b border-white/10 px-6 py-4 backdrop-blur-xl">
             <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl font-semibold text-foreground">Bar Staff Attendance</h1>
-                <p className="text-sm text-muted-foreground">Admin Dashboard</p>
+              <div className="flex items-center gap-3">
+                {/* Mobile Sidebar Toggle - Always Visible */}
+                <SidebarTrigger className="lg:hidden">
+                  <Menu className="h-5 w-5" />
+                </SidebarTrigger>
+                
+                <div>
+                  <h1 className="text-xl font-semibold text-foreground">Bar Staff Attendance</h1>
+                  <p className="text-sm text-muted-foreground">Admin Dashboard</p>
+                </div>
               </div>
               
               <div className="flex items-center gap-4">
