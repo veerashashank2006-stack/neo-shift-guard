@@ -1,5 +1,7 @@
 import { useState } from "react"
-import { NavLink, useLocation } from "react-router-dom"
+import { NavLink, useLocation, useNavigate } from "react-router-dom"
+import { useQRAccess } from "@/contexts/QRAccessContext"
+import { QRAccessDialog } from "@/components/qr/QRAccessDialog"
 import { 
   LayoutDashboard, 
   Users, 
@@ -70,13 +72,30 @@ const navigation = [
 export function AppSidebar() {
   const { state, toggleSidebar } = useSidebar()
   const location = useLocation()
+  const navigate = useNavigate()
   const collapsed = state === "collapsed"
+  const { isQRAuthenticated, setQRAuthenticated } = useQRAccess()
+  const [showQRDialog, setShowQRDialog] = useState(false)
 
   const isActive = (path: string) => {
     if (path === "/") {
       return location.pathname === "/"
     }
     return location.pathname.startsWith(path)
+  }
+
+  const handleQRSessionsClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (!isQRAuthenticated) {
+      setShowQRDialog(true)
+    } else {
+      navigate('/qr-sessions')
+    }
+  }
+
+  const handleQRAccessSuccess = () => {
+    setQRAuthenticated(true)
+    navigate('/qr-sessions')
   }
 
   return (
@@ -120,7 +139,7 @@ export function AppSidebar() {
               {navigation.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton
-                    asChild
+                    asChild={item.url !== '/qr-sessions'}
                     className={`
                       group relative w-full rounded-xl transition-all duration-200
                       ${isActive(item.url)
@@ -129,15 +148,30 @@ export function AppSidebar() {
                       }
                     `}
                   >
-                    <NavLink to={item.url} className="flex items-center gap-3 px-3 py-2.5 w-full">
-                      <item.icon className={`h-4 w-4 flex-shrink-0 ${isActive(item.url) ? "text-primary" : ""}`} />
-                      {!collapsed && (
-                        <span className="text-sm font-medium truncate">{item.title}</span>
-                      )}
-                      {isActive(item.url) && (
-                        <div className="absolute inset-0 rounded-xl bg-primary/5 animate-glow-pulse" />
-                      )}
-                    </NavLink>
+                    {item.url === '/qr-sessions' ? (
+                      <button
+                        onClick={handleQRSessionsClick}
+                        className="flex items-center gap-3 px-3 py-2.5 w-full"
+                      >
+                        <item.icon className={`h-4 w-4 flex-shrink-0 ${isActive(item.url) ? "text-primary" : ""}`} />
+                        {!collapsed && (
+                          <span className="text-sm font-medium truncate">{item.title}</span>
+                        )}
+                        {isActive(item.url) && (
+                          <div className="absolute inset-0 rounded-xl bg-primary/5 animate-glow-pulse" />
+                        )}
+                      </button>
+                    ) : (
+                      <NavLink to={item.url} className="flex items-center gap-3 px-3 py-2.5 w-full">
+                        <item.icon className={`h-4 w-4 flex-shrink-0 ${isActive(item.url) ? "text-primary" : ""}`} />
+                        {!collapsed && (
+                          <span className="text-sm font-medium truncate">{item.title}</span>
+                        )}
+                        {isActive(item.url) && (
+                          <div className="absolute inset-0 rounded-xl bg-primary/5 animate-glow-pulse" />
+                        )}
+                      </NavLink>
+                    )}
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
@@ -155,6 +189,13 @@ export function AppSidebar() {
           )}
         </div>
       </SidebarContent>
+
+      {/* QR Access Dialog */}
+      <QRAccessDialog
+        open={showQRDialog}
+        onOpenChange={setShowQRDialog}
+        onSuccess={handleQRAccessSuccess}
+      />
     </Sidebar>
   )
 }

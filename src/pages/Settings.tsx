@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { User, Shield, Bell, Database, LogOut, Save } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
+import { User, Shield, Bell, Database, LogOut, Save, Lock } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { Tables } from '@/integrations/supabase/types';
 
 type UserProfile = Tables<'user_profiles'>;
@@ -38,6 +39,14 @@ export default function Settings() {
     attendance_reminders: true,
     payroll_notifications: true
   });
+
+  // QR Access PIN
+  const [qrPinForm, setQrPinForm] = useState({
+    currentPin: '',
+    newPin: '',
+    confirmPin: ''
+  });
+  const [qrPinLoading, setQrPinLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -115,6 +124,85 @@ export default function Settings() {
       navigate('/auth');
     } catch (error) {
       console.error('Error signing out:', error);
+    }
+  };
+
+  const updateQRAccessPin = async () => {
+    // Validation
+    if (!qrPinForm.currentPin || !qrPinForm.newPin || !qrPinForm.confirmPin) {
+      toast({
+        title: 'Error',
+        description: 'Please fill in all PIN fields',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (qrPinForm.newPin !== qrPinForm.confirmPin) {
+      toast({
+        title: 'Error',
+        description: 'New PIN and confirmation do not match',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (qrPinForm.newPin.length < 4) {
+      toast({
+        title: 'Error',
+        description: 'PIN must be at least 4 characters long',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setQrPinLoading(true);
+    try {
+      // Verify current PIN first
+      const { data: verifyData, error: verifyError } = await supabase.rpc('verify_qr_access_pin', {
+        input_pin: qrPinForm.currentPin
+      });
+
+      if (verifyError) throw verifyError;
+
+      if (!verifyData) {
+        toast({
+          title: 'Error',
+          description: 'Current PIN is incorrect',
+          variant: 'destructive'
+        });
+        setQrPinLoading(false);
+        return;
+      }
+
+      // Update to new PIN
+      const { error: updateError } = await supabase.rpc('update_qr_access_pin', {
+        new_pin: qrPinForm.newPin
+      });
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: 'Success',
+        description: 'QR Access PIN updated successfully!',
+        variant: 'default'
+      });
+
+      // Clear form
+      setQrPinForm({
+        currentPin: '',
+        newPin: '',
+        confirmPin: ''
+      });
+    } catch (error: any) {
+      console.error('Error updating QR PIN:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to update QR Access PIN',
+        variant: 'destructive'
+      });
+    } finally {
+      setQrPinLoading(false);
     }
   };
 
@@ -321,6 +409,84 @@ export default function Settings() {
                   </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* QR Access Security */}
+          <Card className="glass-card border-white/10">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-primary" />
+                <CardTitle>QR Access Security</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <Alert className="bg-primary/10 border-primary/30">
+                <Lock className="h-4 w-4 text-primary" />
+                <AlertDescription className="text-sm">
+                  This PIN is required to access the QR Sessions page. Keep it secure and change it regularly.
+                  <br />
+                  <span className="text-xs text-muted-foreground mt-1 block">
+                    Default PIN: <code className="bg-muted px-1 py-0.5 rounded">admin1234</code>
+                  </span>
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="current-pin">Current PIN</Label>
+                  <Input
+                    id="current-pin"
+                    type="password"
+                    value={qrPinForm.currentPin}
+                    onChange={(e) => setQrPinForm(prev => ({ ...prev, currentPin: e.target.value }))}
+                    className="glass-card border-white/10"
+                    placeholder="Enter current PIN"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="new-pin">New PIN</Label>
+                  <Input
+                    id="new-pin"
+                    type="password"
+                    value={qrPinForm.newPin}
+                    onChange={(e) => setQrPinForm(prev => ({ ...prev, newPin: e.target.value }))}
+                    className="glass-card border-white/10"
+                    placeholder="Enter new PIN (min 4 characters)"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-pin">Confirm New PIN</Label>
+                  <Input
+                    id="confirm-pin"
+                    type="password"
+                    value={qrPinForm.confirmPin}
+                    onChange={(e) => setQrPinForm(prev => ({ ...prev, confirmPin: e.target.value }))}
+                    className="glass-card border-white/10"
+                    placeholder="Re-enter new PIN"
+                  />
+                </div>
+              </div>
+
+              <Button
+                onClick={updateQRAccessPin}
+                disabled={qrPinLoading}
+                className="w-full glass-button neon-glow"
+              >
+                {qrPinLoading ? (
+                  <>
+                    <Save className="h-4 w-4 mr-2 animate-pulse" />
+                    Updating PIN...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4 mr-2" />
+                    Update QR Access PIN
+                  </>
+                )}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

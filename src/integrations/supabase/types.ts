@@ -191,6 +191,7 @@ export type Database = {
       }
       qr_attendance_config: {
         Row: {
+          access_pin: string | null
           allowed_latitude: number | null
           allowed_longitude: number | null
           created_at: string | null
@@ -205,6 +206,7 @@ export type Database = {
           work_start_time: string | null
         }
         Insert: {
+          access_pin?: string | null
           allowed_latitude?: number | null
           allowed_longitude?: number | null
           created_at?: string | null
@@ -219,6 +221,7 @@ export type Database = {
           work_start_time?: string | null
         }
         Update: {
+          access_pin?: string | null
           allowed_latitude?: number | null
           allowed_longitude?: number | null
           created_at?: string | null
@@ -284,26 +287,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      cleanup_verra_mock_data: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      generate_attendance_qr_code: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      get_daily_qr_code: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      is_manager_from_auth: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
+      cleanup_verra_mock_data: { Args: never; Returns: undefined }
+      generate_attendance_qr_code: { Args: never; Returns: string }
+      get_daily_qr_code: { Args: never; Returns: string }
+      is_manager_from_auth: { Args: never; Returns: boolean }
+      update_qr_access_pin: { Args: { new_pin: string }; Returns: boolean }
       validate_qr_attendance_code: {
         Args: { qr_code_input: string }
         Returns: boolean
       }
+      verify_qr_access_pin: { Args: { input_pin: string }; Returns: boolean }
     }
     Enums: {
       attendance_status: "present" | "absent" | "late" | "half_day"

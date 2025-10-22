@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQRAccess } from '@/contexts/QRAccessContext';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { QrCode, RefreshCw, Settings, MapPin, Clock, Shield, Download, Navigation } from 'lucide-react';
-import { toast } from '@/components/ui/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import QRCodeLib from 'qrcode';
 import type { Tables } from '@/integrations/supabase/types';
@@ -17,6 +19,8 @@ type QRConfig = Tables<'qr_attendance_config'>;
 
 export default function QRSessions() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { isQRAuthenticated, resetQRAccess } = useQRAccess();
   const [config, setConfig] = useState<QRConfig | null>(null);
   const [currentQR, setCurrentQR] = useState<string>('');
   const [qrCodeImage, setQrCodeImage] = useState<string>('');
@@ -37,11 +41,25 @@ export default function QRSessions() {
     geofence_radius_meters: 100
   });
 
+  // Protect the page - redirect if not authenticated for QR access
   useEffect(() => {
-    if (user) {
+    if (!isQRAuthenticated) {
+      navigate('/');
+    }
+  }, [isQRAuthenticated, navigate]);
+
+  // Reset QR access when leaving the page
+  useEffect(() => {
+    return () => {
+      resetQRAccess();
+    };
+  }, [resetQRAccess]);
+
+  useEffect(() => {
+    if (user && isQRAuthenticated) {
       fetchQRConfig();
     }
-  }, [user]);
+  }, [user, isQRAuthenticated]);
 
   const fetchQRConfig = async () => {
     setConfigLoading(true);
