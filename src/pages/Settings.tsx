@@ -425,10 +425,6 @@ export default function Settings() {
                 <Lock className="h-4 w-4 text-primary" />
                 <AlertDescription className="text-sm">
                   This PIN is required to access the QR Sessions page. Keep it secure and change it regularly.
-                  <br />
-                  <span className="text-xs text-muted-foreground mt-1 block">
-                    Default PIN: <code className="bg-muted px-1 py-0.5 rounded">admin1234</code>
-                  </span>
                 </AlertDescription>
               </Alert>
 
