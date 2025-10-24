@@ -76,10 +76,6 @@ export function QRAccessDialog({ open, onOpenChange, onSuccess }: QRAccessDialog
           </div>
           <DialogDescription>
             Enter the security PIN to access the QR Sessions page.
-            <br />
-            <span className="text-xs text-muted-foreground mt-1 block">
-              Default PIN: <code className="bg-muted px-1 py-0.5 rounded">admin1234</code>
-            </span>
           </DialogDescription>
         </DialogHeader>
 

@@ -121,7 +121,7 @@ export function AppSidebar() {
             </div>
             {!collapsed && (
               <div>
-                <h2 className="text-sm font-semibold text-sidebar-foreground">Bar Staff</h2>
+                <h2 className="text-sm font-semibold text-sidebar-foreground">Staff</h2>
                 <p className="text-xs text-sidebar-foreground/60">Attendance Admin</p>
               </div>
             )}
